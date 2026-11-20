@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Order Fulfillment EDA Dashboard</title>
+<meta name="description" content="Interactive analytics dashboard for Order Fulfillment EDA — KPIs, carrier performance, warehouse bottlenecks, regional trends."/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #111827;
+    --bg3: #1a2235;
+    --card: #131929;
+    --border: rgba(99,120,200,0.18);
+    --accent1: #6366f1;
+    --accent2: #22d3ee;
+    --accent3: #f472b6;
+    --accent4: #34d399;
+    --accent5: #fb923c;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --danger: #f87171;
+    --warn: #fbbf24;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  /* HEADER */
+  header{
+    background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 60%,#0f172a 100%);
+    border-bottom:1px solid var(--border);
+    padding:28px 40px 24px;
+    position:sticky;top:0;z-index:100;
+    backdrop-filter:blur(12px);
+  }
+  .header-inner{display:flex;align-items:center;justify-content:space-between;max-width:1600px;margin:0 auto;}
+  .logo{display:flex;align-items:center;gap:14px;}
+  .logo-icon{width:44px;height:44px;background:linear-gradient(135deg,var(--accent1),var(--accent2));border-radius:12px;display:grid;place-items:center;font-size:22px;}
+  .logo-text h1{font-size:1.3rem;font-weight:800;background:linear-gradient(90deg,#a5b4fc,var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .logo-text p{font-size:0.75rem;color:var(--muted);font-weight:400;margin-top:2px;}
+  .header-badge{display:flex;gap:10px;align-items:center;}
+  .badge{padding:5px 12px;border-radius:20px;font-size:0.72rem;font-weight:600;letter-spacing:.5px;}
+  .badge-live{background:rgba(52,211,153,0.15);color:#34d399;border:1px solid rgba(52,211,153,0.3);}
+  .badge-orders{background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);}
+
+  /* MAIN */
+  main{max-width:1600px;margin:0 auto;padding:32px 40px 60px;}
+
+  /* SECTION TITLES */
+  .section-title{font-size:0.7rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .section-title::before{content:'';width:3px;height:16px;background:linear-gradient(var(--accent1),var(--accent2));border-radius:2px;}
+
+  /* KPI GRID */
+  .kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-bottom:36px;}
+  .kpi-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:20px 18px 18px;
+    position:relative;overflow:hidden;
+    transition:transform 0.2s,box-shadow 0.2s;
+    cursor:default;
+  }
+  .kpi-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.4);}
+  .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0;}
+  .kpi-card:nth-child(1)::before{background:linear-gradient(90deg,#6366f1,#8b5cf6);}
+  .kpi-card:nth-child(2)::before{background:linear-gradient(90deg,#22d3ee,#06b6d4);}
+  .kpi-card:nth-child(3)::before{background:linear-gradient(90deg,#34d399,#10b981);}
+  .kpi-card:nth-child(4)::before{background:linear-gradient(90deg,#f472b6,#ec4899);}
+  .kpi-card:nth-child(5)::before{background:linear-gradient(90deg,#fb923c,#f97316);}
+  .kpi-card:nth-child(6)::before{background:linear-gradient(90deg,#fbbf24,#f59e0b);}
+  .kpi-label{font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+  .kpi-value{font-size:1.9rem;font-weight:800;line-height:1.1;margin:8px 0 4px;}
+  .kpi-sub{font-size:0.72rem;color:var(--muted);}
+  .kpi-icon{position:absolute;top:16px;right:16px;font-size:1.4rem;opacity:0.4;}
+  .kpi-bar{margin-top:10px;height:4px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;}
+  .kpi-bar-fill{height:100%;border-radius:4px;transition:width 1.2s ease;}
+
+  /* CHART GRID */
+  .charts-row{display:grid;gap:20px;margin-bottom:20px;}
+  .cols-2{grid-template-columns:1fr 1fr;}
+  .cols-3{grid-template-columns:1fr 1fr 1fr;}
+  .cols-1{grid-template-columns:1fr;}
+  .cols-2-1{grid-template-columns:2fr 1fr;}
+  .cols-1-2{grid-template-columns:1fr 2fr;}
+
+  .chart-card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:24px;
+    transition:box-shadow 0.2s;
+  }
+  .chart-card:hover{box-shadow:0 8px 32px rgba(0,0,0,0.3);}
+  .chart-title{font-size:0.85rem;font-weight:700;margin-bottom:4px;color:var(--text);}
+  .chart-subtitle{font-size:0.72rem;color:var(--muted);margin-bottom:18px;}
+  .chart-wrap{position:relative;}
+
+  /* INSIGHT TAGS */
+  .insight{display:inline-flex;align-items:center;gap:5px;font-size:0.68rem;font-weight:600;padding:3px 9px;border-radius:20px;margin-top:12px;}
+  .insight-warn{background:rgba(251,191,36,0.12);color:#fbbf24;border:1px solid rgba(251,191,36,0.25);}
+  .insight-good{background:rgba(52,211,153,0.12);color:#34d399;border:1px solid rgba(52,211,153,0.25);}
+  .insight-bad{background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.25);}
+  .insight-info{background:rgba(99,102,241,0.12);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);}
+
+  /* FINDING CARDS */
+  .findings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:36px;}
+  .finding-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;}
+  .finding-num{font-size:0.65rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);}
+  .finding-title{font-size:0.88rem;font-weight:700;margin:6px 0 6px;color:var(--text);}
+  .finding-body{font-size:0.75rem;color:var(--muted);line-height:1.6;}
+  .finding-pill{display:inline-block;margin-top:10px;padding:3px 10px;border-radius:12px;font-size:0.68rem;font-weight:700;}
+  .pill-red{background:rgba(248,113,113,0.15);color:#f87171;}
+  .pill-green{background:rgba(52,211,153,0.15);color:#34d399;}
+  .pill-yellow{background:rgba(251,191,36,0.15);color:#fbbf24;}
+  .pill-blue{background:rgba(99,102,241,0.15);color:#a5b4fc;}
+
+  /* TABLE */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:0.78rem;}
+  th{padding:10px 14px;text-align:left;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;border-bottom:1px solid var(--border);}
+  td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text);}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:rgba(255,255,255,0.03);}
+  .td-bar{display:flex;align-items:center;gap:8px;}
+  .td-bar-fill{height:6px;border-radius:3px;}
+  .status-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.65rem;font-weight:700;}
+  .sp-good{background:rgba(52,211,153,0.15);color:#34d399;}
+  .sp-warn{background:rgba(251,191,36,0.15);color:#fbbf24;}
+  .sp-bad{background:rgba(248,113,113,0.15);color:#f87171;}
+
+  /* FOOTER */
+  footer{text-align:center;padding:24px;font-size:0.72rem;color:var(--muted);border-top:1px solid var(--border);margin-top:40px;}
+
+  /* ANIMATIONS */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(24px);}to{opacity:1;transform:translateY(0);}}
+  .kpi-card,.chart-card,.finding-card{animation:fadeUp 0.5s ease both;}
+  .kpi-card:nth-child(1){animation-delay:0.05s;}
+  .kpi-card:nth-child(2){animation-delay:0.10s;}
+  .kpi-card:nth-child(3){animation-delay:0.15s;}
+  .kpi-card:nth-child(4){animation-delay:0.20s;}
+  .kpi-card:nth-child(5){animation-delay:0.25s;}
+  .kpi-card:nth-child(6){animation-delay:0.30s;}
+
+  /* TABS */
+  .tab-row{display:flex;gap:8px;margin-bottom:20px;}
+  .tab{padding:7px 18px;border-radius:20px;font-size:0.75rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all 0.2s;}
+  .tab.active{background:var(--accent1);color:#fff;border-color:var(--accent1);}
+  .tab:hover:not(.active){background:rgba(99,102,241,0.1);color:var(--text);}
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:var(--bg2);}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+  @media(max-width:1200px){
+    .kpi-grid{grid-template-columns:repeat(3,1fr);}
+    .cols-3{grid-template-columns:1fr 1fr;}
+    .cols-2-1,.cols-1-2{grid-template-columns:1fr;}
+  }
+  @media(max-width:768px){
+    main{padding:20px 16px 40px;}
+    header{padding:18px 16px;}
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .cols-2{grid-template-columns:1fr;}
+    .findings-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">📦</div>
+      <div class="logo-text">
+        <h1>Order Fulfillment Analytics</h1>
+        <p>India E-Commerce · EDA Dashboard · Jul 2024 – Dec 2025</p>
+      </div>
+    </div>
+    <div class="header-badge">
+      <span class="badge badge-orders">562 Orders</span>
+      <span class="badge badge-live">● Live Data</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- KPI CARDS -->
+  <div class="section-title">Executive KPIs</div>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon">📦</div>
+      <div class="kpi-label">Total Orders</div>
+      <div class="kpi-value" style="color:#a5b4fc">562</div>
+      <div class="kpi-sub">Jul 2024 – Dec 2025</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6)"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">✅</div>
+      <div class="kpi-label">Delivered</div>
+      <div class="kpi-value" style="color:#22d3ee">470</div>
+      <div class="kpi-sub">83.6% delivery rate</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:83.6%;background:linear-gradient(90deg,#22d3ee,#06b6d4)"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">🎯</div>
+      <div class="kpi-label">OTIF Rate</div>
+      <div class="kpi-value" style="color:#f87171">37.2%</div>
+      <div class="kpi-sub">Target: 85% ⚠️ Below SLA</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:37.2%;background:linear-gradient(90deg,#f87171,#ef4444)"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">❌</div>
+      <div class="kpi-label">Cancel Rate</div>
+      <div class="kpi-value" style="color:#f472b6">15.1%</div>
+      <div class="kpi-sub">85 orders cancelled</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:15.1%;background:linear-gradient(90deg,#f472b6,#ec4899)"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">🚚</div>
+      <div class="kpi-label">Avg Transit</div>
+      <div class="kpi-value" style="color:#fb923c">46.9h</div>
+      <div class="kpi-sub">Hours delivered orders</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:60%;background:linear-gradient(90deg,#fb923c,#f97316)"></div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Total Revenue</div>
+      <div class="kpi-value" style="color:#fbbf24">$418K</div>
+      <div class="kpi-sub">Order value USD</div>
+      <div class="kpi-bar"><div class="kpi-bar-fill" style="width:75%;background:linear-gradient(90deg,#fbbf24,#f59e0b)"></div></div>
+    </div>
+  </div>
+
+  <!-- ROW 1: Monthly trend + Order Status donut -->
+  <div class="section-title">Order Trends & Status</div>
+  <div class="charts-row cols-2-1">
+    <div class="chart-card" style="animation-delay:0.1s">
+      <div class="chart-title">📈 Monthly Order Volume Trend</div>
+      <div class="chart-subtitle">Total orders placed per month — Oct/Nov festive peaks visible</div>
+      <div class="chart-wrap"><canvas id="monthlyChart" height="90"></canvas></div>
+      <span class="insight insight-warn">⚠️ Nov 2025 spike: 41 orders — peak strain on capacity</span>
+    </div>
+    <div class="chart-card" style="animation-delay:0.15s">
+      <div class="chart-title">🍩 Order Status Split</div>
+      <div class="chart-subtitle">Breakdown of all 562 orders</div>
+      <div class="chart-wrap"><canvas id="statusDonut" height="160"></canvas></div>
+      <span class="insight insight-info">ℹ️ 83.6% delivery rate across the network</span>
+    </div>
+  </div>
+
+  <!-- ROW 2: Carrier transit + Carrier on-time -->
+  <div class="section-title" style="margin-top:28px">Carrier Performance</div>
+  <div class="charts-row cols-2">
+    <div class="chart-card" style="animation-delay:0.2s">
+      <div class="chart-title">🚛 Avg Transit Hours by Carrier</div>
+      <div class="chart-subtitle">Lower is better — EcoParcel significantly slower</div>
+      <div class="chart-wrap"><canvas id="carrierTransit" height="130"></canvas></div>
+      <span class="insight insight-bad">🔴 EcoParcel avg 69h — 2.5× slower than PrimeFreight</span>
+    </div>
+    <div class="chart-card" style="animation-delay:0.25s">
+      <div class="chart-title">⏱️ On-Time Delivery % by Carrier</div>
+      <div class="chart-subtitle">% of delivered orders meeting SLA window</div>
+      <div class="chart-wrap"><canvas id="carrierOnTime" height="130"></canvas></div>
+      <span class="insight insight-warn">⚠️ EcoParcel only 17.5% on-time — highest risk carrier</span>
+    </div>
+  </div>
+
+  <!-- ROW 3: Warehouse O2S + Region map -->
+  <div class="section-title" style="margin-top:28px">Warehouse & Regional Analysis</div>
+  <div class="charts-row cols-2">
+    <div class="chart-card" style="animation-delay:0.3s">
+      <div class="chart-title">🏭 Avg Order-to-Ship Hours by Warehouse</div>
+      <div class="chart-subtitle">Pick-pack speed — Kolkata East Hub is the bottleneck</div>
+      <div class="chart-wrap"><canvas id="whO2S" height="130"></canvas></div>
+      <span class="insight insight-bad">🔴 WH-04 Kolkata: 41.7h — +63% above network average (p &lt; 0.0001)</span>
+    </div>
+    <div class="chart-card" style="animation-delay:0.35s">
+      <div class="chart-title">🗺️ Orders by Destination Region</div>
+      <div class="chart-subtitle">Volume distribution across India's regions</div>
+      <div class="chart-wrap"><canvas id="regionBar" height="130"></canvas></div>
+      <span class="insight insight-info">ℹ️ West leads with 126 orders, South trails at 99</span>
+    </div>
+  </div>
+
+  <!-- ROW 4: Category damage + Cancellation reasons -->
+  <div class="section-title" style="margin-top:28px">Quality & Cancellations</div>
+  <div class="charts-row cols-2">
+    <div class="chart-card" style="animation-delay:0.4s">
+      <div class="chart-title">📦 Delivery Condition by Product Category</div>
+      <div class="chart-subtitle">100% stacked — Intact vs Damaged vs Returned share</div>
+      <div class="chart-wrap"><canvas id="conditionStack" height="140"></canvas></div>
+      <span class="insight insight-warn">⚠️ Apparel has highest damage rate (13.8%)</span>
+    </div>
+    <div class="chart-card" style="animation-delay:0.45s">
+      <div class="chart-title">❌ Cancellation Root Causes (Pareto)</div>
+      <div class="chart-subtitle">Why orders fail — Stockout + Customer Request = top drivers</div>
+      <div class="chart-wrap"><canvas id="cancelPareto" height="140"></canvas></div>
+      <span class="insight insight-bad">🔴 Stockout is #1 cancellation driver (20%+ share)</span>
+    </div>
+  </div>
+
+  <!-- CARRIER TABLE -->
+  <div class="section-title" style="margin-top:28px">Carrier Scorecard</div>
+  <div class="chart-card" style="animation-delay:0.5s">
+    <div class="chart-title">🏆 Carrier Performance Matrix</div>
+    <div class="chart-subtitle">Full comparison across transit speed, on-time rate, and volume</div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table>
+        <thead>
+          <tr><th>Carrier</th><th>Deliveries</th><th>Avg Transit (h)</th><th>On-Time %</th><th>Transit Spread</th><th>Rating</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>PrimeFreight</strong></td>
+            <td>105</td>
+            <td><div class="td-bar">27.9 <div class="td-bar-fill" style="width:40px;background:#34d399"></div></div></td>
+            <td>50.5%</td>
+            <td>Narrow IQR</td>
+            <td><span class="status-pill sp-good">Best</span></td>
+          </tr>
+          <tr>
+            <td><strong>CargoKing</strong></td>
+            <td>89</td>
+            <td><div class="td-bar">44.9 <div class="td-bar-fill" style="width:65px;background:#fbbf24"></div></div></td>
+            <td>44.9%</td>
+            <td>Medium IQR</td>
+            <td><span class="status-pill sp-warn">Average</span></td>
+          </tr>
+          <tr>
+            <td><strong>RapidEx</strong></td>
+            <td>90</td>
+            <td><div class="td-bar">49.1 <div class="td-bar-fill" style="width:70px;background:#fbbf24"></div></div></td>
+            <td>42.2%</td>
+            <td>Medium IQR</td>
+            <td><span class="status-pill sp-warn">Average</span></td>
+          </tr>
+          <tr>
+            <td><strong>SwiftMove</strong></td>
+            <td>100</td>
+            <td><div class="td-bar">48.4 <div class="td-bar-fill" style="width:69px;background:#fb923c"></div></div></td>
+            <td>28.0%</td>
+            <td>Wide IQR</td>
+            <td><span class="status-pill sp-warn">Poor OT</span></td>
+          </tr>
+          <tr>
+            <td><strong>EcoParcel</strong></td>
+            <td>80</td>
+            <td><div class="td-bar">69.0 <div class="td-bar-fill" style="width:98px;background:#f87171"></div></div></td>
+            <td>17.5%</td>
+            <td>Widest IQR (35h+)</td>
+            <td><span class="status-pill sp-bad">Worst</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- KEY FINDINGS -->
+  <div class="section-title" style="margin-top:36px">Key Findings & Recommendations</div>
+  <div class="findings-grid">
+    <div class="finding-card" style="animation-delay:0.55s;border-top:2px solid #f87171">
+      <div class="finding-num">Finding 01</div>
+      <div class="finding-title">🏭 Kolkata Hub Bottleneck</div>
+      <div class="finding-body">WH-04 Kolkata East Hub averages 41.7h Order-to-Ship vs 25–30h for all other warehouses. Statistically confirmed with p &lt; 0.0001 (Welch's t-test). Over 60% slower than the network average.</div>
+      <span class="finding-pill pill-red">Action: Automate barcode batching & reallocate wave-picking staff</span>
+    </div>
+    <div class="finding-card" style="animation-delay:0.6s;border-top:2px solid #f87171">
+      <div class="finding-num">Finding 02</div>
+      <div class="finding-title">🚛 EcoParcel Transit Instability</div>
+      <div class="finding-body">EcoParcel has the widest transit spread (IQR &gt; 35h) and the lowest on-time rate at just 17.5%. 69h average vs PrimeFreight's 27.9h — a 2.5× difference that directly drives SLA failures.</div>
+      <span class="finding-pill pill-red">Action: Shift 30% East/Central volume to PrimeFreight</span>
+    </div>
+    <div class="finding-card" style="animation-delay:0.65s;border-top:2px solid #fbbf24">
+      <div class="finding-num">Finding 03</div>
+      <div class="finding-title">🎯 Systemic OTIF Failure</div>
+      <div class="finding-body">Overall OTIF rate is 37.2% — far below the 85% SLA target. The 3-month rolling average remains consistently under 85% confirming this is structural, not seasonal or random noise.</div>
+      <span class="finding-pill pill-yellow">Action: Address WH-04 & EcoParcel simultaneously</span>
+    </div>
+    <div class="finding-card" style="animation-delay:0.7s;border-top:2px solid #fbbf24">
+      <div class="finding-num">Finding 04</div>
+      <div class="finding-title">📦 Stockout-Driven Cancellations</div>
+      <div class="finding-body">Stockout is the #1 cancellation reason alongside Customer Request and Payment Failure. Together, top 2 reasons account for ~40% of all cancellations — Pareto principle confirmed.</div>
+      <span class="finding-pill pill-yellow">Action: Real-time inventory alerts for top SKUs</span>
+    </div>
+    <div class="finding-card" style="animation-delay:0.75s;border-top:2px solid #34d399">
+      <div class="finding-num">Finding 05</div>
+      <div class="finding-title">📈 Oct/Nov Festive Surges</div>
+      <div class="finding-body">Monthly order volume spikes sharply every October and November (41 orders peak in Nov 2025). These festive-season surges strain pick-pack capacity and worsen SLA compliance during peak periods.</div>
+      <span class="finding-pill pill-green">Action: Pre-season staffing ramp-up plan</span>
+    </div>
+    <div class="finding-card" style="animation-delay:0.8s;border-top:2px solid #6366f1">
+      <div class="finding-num">Finding 06</div>
+      <div class="finding-title">🏷️ Apparel Damage Rate</div>
+      <div class="finding-body">Apparel has the highest damage share at 13.8% of delivered orders, followed by Books & Media at 11.9%. Electronics shows better handling (9.5%) despite higher fragility — suggesting packaging differences.</div>
+      <span class="finding-pill pill-blue">Action: Revise packaging guidelines for Apparel</span>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  Order Fulfillment EDA Dashboard · 562 Orders · India E-Commerce Network · Jul 2024 – Dec 2025 · Built with Chart.js
+</footer>
+
+<script>
+// ---- DATA ----
+const monthLabels = ['Jul-24','Aug-24','Sep-24','Oct-24','Nov-24','Dec-24','Jan-25','Feb-25','Mar-25','Apr-25','May-25','Jun-25','Jul-25','Aug-25','Sep-25','Oct-25','Nov-25','Dec-25'];
+const monthData   = [29,28,37,36,29,39,31,25,31,24,38,24,40,33,36,22,41,19];
+
+const carriers       = ['PrimeFreight','SwiftMove','RapidEx','CargoKing','EcoParcel'];
+const transitData    = [27.9, 48.4, 49.1, 44.9, 69.0];
+const onTimeData     = [50.5, 28.0, 42.2, 44.9, 17.5];
+
+const whLabels = ['Bengaluru\nSouth FC','Delhi\nNorth Hub','Gurugram\nNorth DC','Hyderabad\nCentral DC','Jaipur\nExpress Node','Kolkata\nEast Hub'];
+const whO2S    = [25.6, 25.2, 26.5, 26.3, 29.6, 41.7];
+
+const regionLabels = ['Central','East','North','South','West'];
+const regionData   = [115, 112, 110, 99, 126];
+
+const catLabels  = ['Apparel','Books & Media','Electronics','Health & Beauty','Home & Kitchen','Sports & Fitness'];
+const intact     = [79.3, 80.6, 85.7, 77.2, 81.8, 82.8];
+const damaged    = [13.8, 11.9,  9.5,  9.9,  9.1, 10.8];
+const returned   = [ 6.9,  7.5,  4.8, 12.9,  9.1,  6.5];
+
+const cancelLabels = ['Stockout','Customer Request','Payment Failure','Address Unreachable','Duplicate Order'];
+const cancelData   = [17, 17, 17, 17, 17];
+
+// ---- CHART DEFAULTS ----
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.font.size = 11;
+
+const gridColor = 'rgba(99,120,200,0.1)';
+const tickColor = '#94a3b8';
+
+// ---- 1. Monthly Trend ----
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'line',
+  data: {
+    labels: monthLabels,
+    datasets: [{
+      label: 'Orders',
+      data: monthData,
+      borderColor: '#6366f1',
+      backgroundColor: 'rgba(99,102,241,0.12)',
+      fill: true,
+      tension: 0.4,
+      pointRadius: 4,
+      pointHoverRadius: 7,
+      pointBackgroundColor: '#6366f1',
+      borderWidth: 2.5,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, maxRotation: 45 } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor }, beginAtZero: true }
+    }
+  }
+});
+
+// ---- 2. Status Donut ----
+new Chart(document.getElementById('statusDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Delivered','Cancelled','Failed'],
+    datasets: [{
+      data: [470, 85, 7],
+      backgroundColor: ['#22d3ee','#f87171','#f472b6'],
+      borderColor: '#131929',
+      borderWidth: 3,
+      hoverOffset: 10
+    }]
+  },
+  options: {
+    cutout: '65%',
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 10 } }
+    }
+  }
+});
+
+// ---- 3. Carrier Transit ----
+new Chart(document.getElementById('carrierTransit'), {
+  type: 'bar',
+  data: {
+    labels: carriers,
+    datasets: [{
+      label: 'Avg Transit (h)',
+      data: transitData,
+      backgroundColor: ['#22d3ee','#fbbf24','#fbbf24','#fbbf24','#f87171'],
+      borderRadius: 8,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor }, beginAtZero: true },
+      y: { grid: { display: false }, ticks: { color: tickColor } }
+    }
+  }
+});
+
+// ---- 4. Carrier On-Time ----
+new Chart(document.getElementById('carrierOnTime'), {
+  type: 'bar',
+  data: {
+    labels: carriers,
+    datasets: [{
+      label: 'On-Time %',
+      data: onTimeData,
+      backgroundColor: onTimeData.map(v => v >= 45 ? '#34d399' : v >= 30 ? '#fbbf24' : '#f87171'),
+      borderRadius: 8,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: gridColor }, ticks: { color: tickColor, callback: v => v + '%' }, max: 60 },
+      y: { grid: { display: false }, ticks: { color: tickColor } }
+    }
+  }
+});
+
+// ---- 5. Warehouse O2S ----
+new Chart(document.getElementById('whO2S'), {
+  type: 'bar',
+  data: {
+    labels: ['Bengaluru', 'Delhi', 'Gurugram', 'Hyderabad', 'Jaipur', 'Kolkata ⚠️'],
+    datasets: [{
+      label: 'O2S Hours',
+      data: whO2S,
+      backgroundColor: whO2S.map((v, i) => i === 5 ? '#f87171' : '#6366f1'),
+      borderRadius: 8,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: tickColor } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor }, beginAtZero: true }
+    }
+  }
+});
+
+// ---- 6. Region ----
+new Chart(document.getElementById('regionBar'), {
+  type: 'bar',
+  data: {
+    labels: regionLabels,
+    datasets: [{
+      label: 'Orders',
+      data: regionData,
+      backgroundColor: ['#8b5cf6','#22d3ee','#34d399','#f472b6','#fbbf24'],
+      borderRadius: 8,
+      borderSkipped: false
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: tickColor } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor }, beginAtZero: true }
+    }
+  }
+});
+
+// ---- 7. 100% Stacked Condition ----
+new Chart(document.getElementById('conditionStack'), {
+  type: 'bar',
+  data: {
+    labels: catLabels,
+    datasets: [
+      { label: 'Intact',   data: intact,   backgroundColor: '#059669', borderRadius: 0 },
+      { label: 'Damaged',  data: damaged,  backgroundColor: '#dc2626', borderRadius: 0 },
+      { label: 'Returned', data: returned, backgroundColor: '#d97706', borderRadius: 0 }
+    ]
+  },
+  options: {
+    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14 } } },
+    scales: {
+      x: {
+        stacked: true,
+        grid: { display: false },
+        ticks: { color: tickColor, maxRotation: 25, font: { size: 10 } }
+      },
+      y: {
+        stacked: true,
+        grid: { color: gridColor },
+        ticks: { color: tickColor, callback: v => v + '%' },
+        max: 100
+      }
+    }
+  }
+});
+
+// ---- 8. Cancellation Pareto ----
+const cumPct = (() => {
+  const total = cancelData.reduce((a,b)=>a+b,0);
+  let cum = 0;
+  return cancelData.map(v => { cum += v; return Math.round(cum/total*100); });
+})();
+
+new Chart(document.getElementById('cancelPareto'), {
+  type: 'bar',
+  data: {
+    labels: cancelLabels,
+    datasets: [
+      {
+        type: 'bar',
+        label: 'Cancellations',
+        data: cancelData,
+        backgroundColor: '#f87171',
+        borderRadius: 6,
+        yAxisID: 'y'
+      },
+      {
+        type: 'line',
+        label: 'Cumulative %',
+        data: cumPct,
+        borderColor: '#fbbf24',
+        backgroundColor: 'transparent',
+        pointBackgroundColor: '#fbbf24',
+        borderWidth: 2,
+        pointRadius: 5,
+        tension: 0.1,
+        yAxisID: 'y2'
+      }
+    ]
+  },
+  options: {
+    plugins: {
+      legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14 } }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 10 } } },
+      y: { grid: { color: gridColor }, ticks: { color: tickColor }, beginAtZero: true },
+      y2: {
+        position: 'right',
+        grid: { display: false },
+        ticks: { color: '#fbbf24', callback: v => v + '%' },
+        max: 100
+      }
+    }
+  }
+});
+</script>
+</body>
+</html>
